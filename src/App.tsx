@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react'
 import { LangContext, dict, useT, type Lang } from './i18n'
+import DemoChoice from './DemoChoice'
 import Footer from './Footer'
 import Intro from './Intro'
 import Landing from './Landing'
+import Demo from './Demo'
+import Ops from './Ops'
 import { scrollToEl, scrollToY, startSmoothScroll } from './smooth'
-import { demo } from './links'
 import { ArrowBtn, Glyph, T } from './ui'
 
 const store = {
@@ -15,7 +17,7 @@ export { store }
 
 type Theme = 'dark' | 'light'
 
-// Only #/ and in-page anchors (#/#how); demo routes live on the demo site (links.ts).
+// Hash routes (#/, #/demo, #/demo?story=1) so the static build works on any host without rewrites.
 function useHash() {
   const [hash, setHash] = useState(window.location.hash)
   useEffect(() => {
@@ -107,7 +109,7 @@ function Nav({ path, theme, setTheme }: { path: string; theme: Theme; setTheme: 
   const other: Lang = lang === 'en' ? 'vi' : 'en'
   const links = [
     { href: '#/#how', label: L.how[lang], alt: L.how[other], current: false },
-    { href: demo('#/ops'), label: t('navOps'), alt: dict.navOps[other], current: false },
+    { href: '#/ops', label: t('navOps'), alt: dict.navOps[other], current: path.startsWith('/ops') },
   ]
 
   return (
@@ -128,7 +130,7 @@ function Nav({ path, theme, setTheme }: { path: string; theme: Theme; setTheme: 
           <div className="nav-tools">
             <LangSwitch />
             <ThemeSwitch theme={theme} setTheme={setTheme} />
-            <ArrowBtn href={demo('#/demo?choose=1')}><T k="navDemo" /></ArrowBtn>
+            <ArrowBtn href="#/demo?choose=1"><T k="navDemo" /></ArrowBtn>
             <button className="icon-btn burger" aria-expanded={open} aria-controls="menu-sheet" aria-label={open ? L.closeMenu[lang] : L.menu[lang]} onClick={() => setOpen(!open)}>
               <Glyph name={open ? 'close' : 'menu'} />
             </button>
@@ -138,7 +140,7 @@ function Nav({ path, theme, setTheme }: { path: string; theme: Theme; setTheme: 
       {open && (
         <div className="menu-sheet" id="menu-sheet">
           {links.map((l) => <a key={l.href} className="m-link" href={l.href} onClick={() => setOpen(false)}>{l.label}</a>)}
-          <a className="m-link" href={demo('#/demo?choose=1')} onClick={() => setOpen(false)}><T k="navDemo" /></a>
+          <a className="m-link" href="#/demo?choose=1" onClick={() => setOpen(false)}><T k="navDemo" /></a>
           <div className="menu-tools"><LangSwitch /><ThemeSwitch theme={theme} setTheme={setTheme} /></div>
         </div>
       )}
@@ -161,18 +163,22 @@ export default function App() {
   }, [theme])
 
   const hash = useHash()
-  const path = hash.replace(/^#/, '').split('?')[0]
+  const [path, query] = hash.replace(/^#/, '').split('?')
+  const isDemo = path.startsWith('/demo')
+  const isOps = path.startsWith('/ops')
+  const story = new URLSearchParams(query ?? '').get('story') === '1'
+  const choose = new URLSearchParams(query ?? '').get('choose') === '1'
 
   useEffect(() => {
-    if (hash.includes('#how')) scrollToEl(document.getElementById('how'))
-  }, [hash])
+    if (!isDemo && !isOps && hash.includes('#how')) scrollToEl(document.getElementById('how'))
+  }, [hash, isDemo, isOps])
 
   return (
     <LangContext.Provider value={{ lang, setLang }}>
       <Intro />
       <Nav path={path} theme={theme} setTheme={setTheme} />
-      <main id="content" tabIndex={-1} style={{ outline: 'none' }}><Landing /></main>
-      <Footer />
+      <main id="content" tabIndex={-1} style={{ outline: 'none' }}>{isDemo ? <><Demo key={String(story)} story={story} />{choose && <DemoChoice />}</> : isOps ? <Ops /> : <Landing />}</main>
+      {!isDemo && <Footer />}
     </LangContext.Provider>
   )
 }

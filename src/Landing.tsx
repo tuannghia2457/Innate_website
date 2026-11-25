@@ -3,7 +3,6 @@ import { ArtCapture, ArtDecide, ArtModels, ArtThreat, HeroPhone } from './art'
 import { INTRO_DONE, introRunning } from './Intro'
 import { Icon, type IconName } from './icons'
 import { useT } from './i18n'
-import { demo } from './links'
 import StackSection from './StackSection'
 import { PERSONAS, type PersonaId } from './story'
 import { ArrowBtn, Badge, FitText, Glyph, useReveal, T, Tx } from './ui'
@@ -183,7 +182,7 @@ export default function Landing() {
               <div className="a-up"><Badge><T k="slogan" /></Badge></div>
               <h1 className="h3 a-up" id="hero-title" style={{ '--ad': '0.08s' } as CSSProperties}><T k="heroTitle" /></h1>
               <div className="hero2-ctas a-up" style={{ '--ad': '0.16s' } as CSSProperties}>
-                <ArrowBtn href={demo('#/demo?choose=1')}><T k="introDemo" /></ArrowBtn>
+                <ArrowBtn href="#/demo?choose=1"><T k="introDemo" /></ArrowBtn>
               </div>
               <p className="hero2-meta a-up" style={{ '--ad': '0.24s' } as CSSProperties}>{tx({ en: 'A behavioural risk layer for e-wallets', vi: 'Lớp chấm điểm rủi ro hành vi cho ví điện tử' })}</p>
             </div>
@@ -226,7 +225,7 @@ export default function Landing() {
             </article>
             <article className="mid-card reveal" style={{ '--rd': '0.08s' } as CSSProperties}>
               <p className="pretty"><Tx v={C.problemBody} /></p>
-              <ArrowBtn href={demo('#/demo?story=1')}><T k="ctaStory" /></ArrowBtn>
+              <ArrowBtn href="#/demo?story=1"><T k="ctaStory" /></ArrowBtn>
             </article>
             <article className="art-card edge reveal" style={{ '--rd': '0.16s' } as CSSProperties}>
               <h3 className="h3"><Tx v={C.whatsLeft} /></h3>
@@ -264,7 +263,7 @@ export default function Landing() {
                       <div className="nrow-copy">
                         <p className="pretty">{o.body}</p>
                         <ul className="pills">{o.pills.map((p) => <li key={p}>{p}</li>)}</ul>
-                        <div><ArrowBtn href={demo('#/demo')}><T k="ctaTry" /></ArrowBtn></div>
+                        <div><ArrowBtn href="#/demo"><T k="ctaTry" /></ArrowBtn></div>
                       </div>
                     </div>
                   )}
@@ -394,7 +393,7 @@ export default function Landing() {
           </ul>
           <div className="cast-foot">
             <p><T k="avatarCredit" /></p>
-            <ArrowBtn href={demo('#/demo?story=1')}><T k="ctaStory" /></ArrowBtn>
+            <ArrowBtn href="#/demo?story=1"><T k="ctaStory" /></ArrowBtn>
           </div>
         </div>
       </section>
@@ -415,7 +414,7 @@ export default function Landing() {
             ))}
             <div className="faq-cta reveal">
               <div><b><Tx v={C.faqMore} /></b><span><Tx v={C.faqMoreSub} /></span></div>
-              <ArrowBtn href={demo('#/demo')}><T k="ctaTry" /></ArrowBtn>
+              <ArrowBtn href="#/demo"><T k="ctaTry" /></ArrowBtn>
             </div>
           </div>
         </div>

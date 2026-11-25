@@ -1,4 +1,4 @@
-import { API_URL, demo } from './links'
+import { API_URL } from './api'
 import { useT, type Lang } from './i18n'
 import { FitText } from './ui'
 
@@ -6,9 +6,9 @@ import { FitText } from './ui'
 type L = { en: string; vi: string }
 const cols: { label: L; links: [L, string][] }[] = [
   { label: { en: 'Innate', vi: 'Innate' }, links: [
-    [{ en: 'Watch the story', vi: 'Xem tình huống' }, demo('#/demo?story=1')],
-    [{ en: 'Try the demo wallet', vi: 'Tự thử ví demo' }, demo('#/demo')],
-    [{ en: 'Ops dashboard', vi: 'Bảng vận hành' }, demo('#/ops')],
+    [{ en: 'Watch the story', vi: 'Xem tình huống' }, '#/demo?story=1'],
+    [{ en: 'Try the demo wallet', vi: 'Tự thử ví demo' }, '#/demo'],
+    [{ en: 'Ops dashboard', vi: 'Bảng vận hành' }, '#/ops'],
     [{ en: 'How it works', vi: 'Cách hoạt động' }, '#/#how'],
   ] },
   { label: { en: 'For developers', vi: 'Cho lập trình viên' }, links: [
@@ -29,7 +29,7 @@ export default function Footer() {
   return (
     <footer className="foot" lang={lang}>
       <div className="wrap">
-        <a className="foot-contact" href={demo('#/demo?choose=1')}>
+        <a className="foot-contact" href="#/demo?choose=1">
           <div>
             <h2 className="h2"><span className="mk">{lang === 'en' ? 'See it run' : 'Xem chạy thật'}</span></h2>
             <p>{lang === 'en' ? 'Innate, a behavioural risk layer for e-wallets. Passwords can be stolen. Habits can’t.' : 'Innate, lớp chấm điểm rủi ro hành vi cho ví điện tử. Mã PIN có thể bị lộ. Thói quen thì không.'}</p>

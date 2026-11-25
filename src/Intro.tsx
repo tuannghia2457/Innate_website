@@ -3,7 +3,7 @@ import { Mark } from './App'
 import { useT } from './i18n'
 
 // Plays on every load of the home page, then drops into the landing hero, which carries the demo and app CTAs.
-// A deep link (#/#how) skips it.
+// A deep link (#/demo, #/ops) opens its page directly, so judges' links and the nav's Open demo reload skip it.
 const isHome = () => ['', '#', '#/'].includes(window.location.hash)
 
 // The landing hero starts Movora's entrance (wordmark, container drop) when the intro begins to lift away.
