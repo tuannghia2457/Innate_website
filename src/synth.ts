@@ -1,4 +1,4 @@
-import type { SessionIn, Tap } from './api'
+import type { FieldEvent, SessionIn, Tap, TextField } from './api'
 
 // Synthetic sessions for the guided story and the in-browser bot. Built on the real key positions of the wallet
 // on screen, so the backend scores them exactly like a recorded session. Mirrors backend/tests/synth.py.
@@ -56,4 +56,30 @@ export function botSession(userId: string, pin: string, layout: Layout, t0 = 300
   const points = Array.from({ length: 6 }, (_, i) => ({ t: i * 20, x: 200, y: 600 - 50 * i }))
   return { user_id: userId, device_id: 'story_phone', pin_taps: taps, swipes: [{ points }],
     screens: [{ name: 'pin', t_enter: 0, t_first_touch: t0 }] }
+}
+
+/**
+ * Adds a bank-account step before the PIN. 'set_text': malware writes the whole number into the field at once
+ * (Accessibility ACTION_SET_TEXT, plus the amount), no key events. 'typed': a person presses each digit.
+ * Only times, kinds and counts are sent, never the digits. Returns the per-digit gaps so the wallet can replay them.
+ */
+export function withAccount(s: SessionIn, mode: 'set_text' | 'typed', digits: number, g?: Rng): { session: SessionIn; typing?: number[] } {
+  const start = 400
+  let end = start, typing: number[] | undefined
+  const events: FieldEvent[] = []
+  if (mode === 'set_text') {
+    events.push({ t: start, kind: 'set_text', n: digits })
+    end = start + 1200
+  } else {
+    typing = Array.from({ length: digits }, () => Math.max(90, g!.gauss(280, 90)))
+    let t = start
+    for (const dt of typing) { t += dt; events.push({ t: r1(t), kind: 'key', n: 1, cls: 'digit' }) }
+    end = t + 1500
+  }
+  const fields: TextField[] = [{ name: 'recipient', events }]
+  if (mode === 'set_text') fields.push({ name: 'amount', events: [{ t: start + 40, kind: 'set_text', n: 8 }] })
+  const shift = end
+  const pin_taps = s.pin_taps.map((tp) => ({ ...tp, t_down: r1(tp.t_down + shift), t_up: r1(tp.t_up + shift) }))
+  const screens = s.screens.map((sc) => ({ ...sc, t_enter: sc.t_enter + shift, t_first_touch: sc.t_first_touch === null ? null : sc.t_first_touch + shift }))
+  return { session: { ...s, pin_taps, screens, fields }, typing }
 }

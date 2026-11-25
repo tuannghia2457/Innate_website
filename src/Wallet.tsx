@@ -13,13 +13,22 @@ type L = { en: string; vi: string }
 export const CONTACTS = [
   { id: 'me', name: { en: 'Mum', vi: 'Mẹ' }, acct: '0901 234 567', known: true },
   { id: 'tuan', name: { en: 'Tuấn (landlord)', vi: 'Anh Tuấn (chủ nhà)' }, acct: '0912 888 120', known: true },
-  { id: 'new', name: { en: 'New recipient', vi: 'Người nhận mới' }, acct: '', known: false },
+  { id: 'new', name: { en: 'Bank account', vi: 'Tài khoản ngân hàng' }, acct: '', known: false },
 ]
+// Account number lengths as published by each bank (see Innate_Odylytics docs/research/transfer-flow.md §5.1)
+export const BANKS = [
+  { id: 'vcb', name: 'Vietcombank', len: 13 }, { id: 'bidv', name: 'BIDV', len: 14 }, { id: 'ctg', name: 'VietinBank', len: 12 },
+  { id: 'agr', name: 'Agribank', len: 13 }, { id: 'tcb', name: 'Techcombank', len: 14 }, { id: 'mb', name: 'MB', len: 13 },
+]
+// Fictional name shown after the account "lookup" (a real wallet asks Napas)
+const LOOKUP = ['NGUYEN VAN AN', 'TRAN THI BICH', 'LE HOANG NAM', 'PHAM MINH KHOA', 'DO THU TRANG']
+const lookup = (acct: string) => LOOKUP[[...acct].reduce((a, c) => a + Number(c), 0) % LOOKUP.length]
+export interface Account { bank: string; acct: string; typing?: number[] } // typing: ms per digit when a ghost types it
 export const AMOUNTS = [200_000, 500_000, 2_000_000, 20_000_000]
 export interface PayCtx { recipient: string; recipient_is_new: boolean; amount: number }
-export type Ghost = { id: number; taps: Tap[]; label: L; pay?: { recipient: string; amount: number } }
+export type Ghost = { id: number; taps: Tap[]; label: L; pay?: { recipient: string; amount: number; account?: Account } }
 
-type Screen = 'home' | 'transfer' | 'pin' | 'wait' | 'result'
+type Screen = 'home' | 'transfer' | 'account' | 'pin' | 'wait' | 'result'
 
 export default function Wallet({ mode, enrollStep, busy, outcome, ghost, onLayout, onPin, onDone }: {
   mode: 'enroll' | 'pay'
@@ -40,15 +49,26 @@ export default function Wallet({ mode, enrollStep, busy, outcome, ghost, onLayou
   const [recipient, setRecipient] = useState(CONTACTS[0].id)
   const [amount, setAmount] = useState(AMOUNTS[1])
   const [note, setNote] = useState<L | null>(null)
+  const [bank, setBank] = useState<string | null>(null)
+  const [acct, setAcct] = useState('')
   const rec = useRef(new Recorder())
   const keyEls = useRef<Record<string, HTMLButtonElement | null>>({})
   const ctx = (): PayCtx => {
     const c = CONTACTS.find((x) => x.id === recipient)!
-    return { recipient: c.name[lang], recipient_is_new: !c.known, amount }
+    return { recipient: c.known ? c.name[lang] : acctReady ? lookup(acct) : c.name[lang], recipient_is_new: !c.known, amount }
   }
 
   // a fresh recording for every attempt
-  const begin = (s: Screen) => { rec.current = new Recorder(); rec.current.screen(s); setDigits(''); setNote(null); setScreen(s) }
+  const begin = (s: Screen) => { rec.current = new Recorder(); rec.current.screen(s); setDigits(''); setNote(null); setBank(null); setAcct(''); setScreen(s) }
+  const bankLen = BANKS.find((b) => b.id === bank)?.len ?? 14
+  const acctReady = !!bank && acct.length === bankLen
+  // account digits: the SDK records when each key was pressed and deletions, never the digits (account numbers are personal data)
+  const acctPress = (k: string) => {
+    if (busy || ghost) return
+    if (k === '⌫') { if (acct) { setAcct(acct.slice(0, -1)); rec.current.field('recipient', 'delete') } return }
+    if (!k || acct.length >= bankLen) return
+    setAcct(acct + k); rec.current.field('recipient', 'key')
+  }
   useEffect(() => { if (mode === 'enroll') begin('pin'); else setScreen('home') }, [mode, enrollStep]) // eslint-disable-line react-hooks/exhaustive-deps
   // pay mode: a result shows the result screen; clearing it goes back home
   useEffect(() => { if (mode === 'pay') setScreen((s) => (outcome ? 'result' : s === 'result' ? 'home' : s)) }, [outcome, mode])
@@ -85,12 +105,24 @@ export default function Wallet({ mode, enrollStep, busy, outcome, ghost, onLayou
   useEffect(() => {
     if (!ghost) return
     if (ghost.pay) { setRecipient(ghost.pay.recipient); setAmount(ghost.pay.amount) }
-    setScreen('pin'); setDigits(''); setNote(null)
+    setDigits(''); setNote(null)
     const timers: number[] = []
+    const a = ghost.pay?.account
+    let lead = 0
+    if (a) {
+      setScreen('account'); setBank(a.bank); setAcct('')
+      if (!a.typing) { timers.push(window.setTimeout(() => setAcct(a.acct), 700)); lead = 1900 }
+      else {
+        let t = 500
+        a.typing.forEach((dt, i) => { t += dt; timers.push(window.setTimeout(() => setAcct(a.acct.slice(0, i + 1)), t)) })
+        lead = t + 900
+      }
+      timers.push(window.setTimeout(() => setScreen('pin'), lead))
+    } else setScreen('pin')
     const t0 = ghost.taps[0]?.t_down ?? 0
     ghost.taps.forEach((tp, i) => {
-      timers.push(window.setTimeout(() => setPressed(tp.key), tp.t_down - t0 + 250))
-      timers.push(window.setTimeout(() => { setPressed(null); setDigits((d) => (d + tp.key).slice(0, 4)); if (i === ghost.taps.length - 1) setScreen('wait') }, tp.t_up - t0 + 250))
+      timers.push(window.setTimeout(() => setPressed(tp.key), lead + tp.t_down - t0 + 250))
+      timers.push(window.setTimeout(() => { setPressed(null); setDigits((d) => (d + tp.key).slice(0, 4)); if (i === ghost.taps.length - 1) setScreen('wait') }, lead + tp.t_up - t0 + 250))
     })
     return () => timers.forEach((id) => window.clearTimeout(id))
   }, [ghost])
@@ -128,10 +160,16 @@ export default function Wallet({ mode, enrollStep, busy, outcome, ghost, onLayou
   const swipe = {
     onPointerDown: (e: RPointerEvent<HTMLDivElement>) => { e.currentTarget.setPointerCapture(e.pointerId); rec.current.swipeStart(e.nativeEvent) },
     onPointerMove: (e: RPointerEvent<HTMLDivElement>) => rec.current.swipeMove(e.nativeEvent),
-    onPointerUp: () => { if (rec.current.swipeEnd() < -60) { rec.current.screen('pin'); setScreen('pin') } },
+    onPointerUp: () => { if (rec.current.swipeEnd() < -60) toPin() },
+  }
+  const needAcct = recipient === 'new' && !acctReady
+  const toPin = () => {
+    if (needAcct) { rec.current.screen('account'); setScreen('account'); return }
+    rec.current.screen('pin'); setScreen('pin')
   }
 
   const c = CONTACTS.find((x) => x.id === recipient)!
+  const toName = c.known ? tx(c.name) : acctReady ? lookup(acct) : tx(c.name)
   const act = outcome?.action
 
   return (
@@ -160,10 +198,17 @@ export default function Wallet({ mode, enrollStep, busy, outcome, ghost, onLayou
               {CONTACTS.map((x) => (
                 <label key={x.id} className={`w-opt ${recipient === x.id ? 'on' : ''}`}>
                   <input type="radio" name="to" checked={recipient === x.id} onChange={() => setRecipient(x.id)} />
-                  <b>{tx(x.name)}</b><span>{x.acct || (lang === 'en' ? 'not in your contacts' : 'chưa có trong danh bạ')}</span>
+                  <b>{tx(x.name)}</b><span>{x.acct || (x.id === 'new' && acctReady
+                    ? `${BANKS.find((b) => b.id === bank)!.name} · ${lookup(acct)}`
+                    : (lang === 'en' ? 'type an account number' : 'nhập số tài khoản'))}</span>
                 </label>
               ))}
             </fieldset>
+            {recipient === 'new' && (
+              <button className="w-act" onClick={() => { rec.current.screen('account'); setScreen('account') }}>
+                {acctReady ? (lang === 'en' ? 'Change account' : 'Đổi tài khoản') : (lang === 'en' ? 'Enter account number' : 'Nhập số tài khoản')}
+              </button>
+            )}
             <fieldset><legend>{lang === 'en' ? 'Amount' : 'Số tiền'}</legend>
               <div className="w-amounts">
                 {AMOUNTS.map((a) => (
@@ -174,10 +219,38 @@ export default function Wallet({ mode, enrollStep, busy, outcome, ghost, onLayou
               </div>
             </fieldset>
             <div className="w-swipe" {...swipe} role="button" tabIndex={0} aria-label={lang === 'en' ? 'Swipe up to continue' : 'Vuốt lên để tiếp tục'}
-              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { rec.current.screen('pin'); setScreen('pin') } }}>
+              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') toPin() }}>
               <span className="w-swipe-arrow" aria-hidden="true">↑</span>
               {lang === 'en' ? 'Swipe up to continue' : 'Vuốt lên để tiếp tục'}
             </div>
+          </div>
+        )}
+
+        {screen === 'account' && (
+          <div className="w-transfer w-account">
+            <h3>{lang === 'en' ? 'To a bank account' : 'Đến tài khoản ngân hàng'}</h3>
+            <div className="w-banks" role="radiogroup" aria-label={lang === 'en' ? 'Bank' : 'Ngân hàng'}>
+              {BANKS.map((b) => (
+                <label key={b.id} className={`w-chip ${bank === b.id ? 'on' : ''}`}>
+                  <input type="radio" name="bank" checked={bank === b.id} disabled={!!ghost}
+                    onChange={() => { setBank(b.id); setAcct((v) => v.slice(0, b.len)) }} />{b.name}
+                </label>
+              ))}
+            </div>
+            <div className="w-acct" aria-live="polite">
+              <span className="mono">{acct || (lang === 'en' ? 'Account number' : 'Số tài khoản')}</span>
+              <small>{bank ? `${acct.length}/${bankLen}` : (lang === 'en' ? 'Pick a bank first' : 'Chọn ngân hàng trước')}</small>
+            </div>
+            <p className="w-hint">{ghost ? tx(ghost.label) : acctReady ? `${lang === 'en' ? 'Name' : 'Tên'}: ${lookup(acct)}` : ''}</p>
+            <div className="w-keys w-keys-sm">
+              {KEYS.map((k, i) => k === '' ? <span key={i} /> : (
+                <button key={i} className={`w-key ${k === '⌫' ? 'del' : ''}`} disabled={!bank && k !== '⌫'}
+                  onClick={() => acctPress(k)} aria-label={k === '⌫' ? (lang === 'en' ? 'Delete' : 'Xoá') : k}>{k}</button>
+              ))}
+            </div>
+            <button className="w-act primary" disabled={!acctReady || !!ghost} onClick={() => setScreen('transfer')}>
+              {lang === 'en' ? 'Done' : 'Xong'}
+            </button>
           </div>
         )}
 
@@ -185,7 +258,7 @@ export default function Wallet({ mode, enrollStep, busy, outcome, ghost, onLayou
           <div className="w-pin">
             <h3>{mode === 'enroll'
               ? (lang === 'en' ? `Enroll your rhythm · ${enrollStep}/3` : `Đăng ký nhịp · lần ${enrollStep}/3`)
-              : (lang === 'en' ? `Confirm ${money(amount)} to ${tx(c.name)}` : `Xác nhận ${money(amount)} cho ${tx(c.name)}`)}</h3>
+              : (lang === 'en' ? `Confirm ${money(amount)} to ${toName}` : `Xác nhận ${money(amount)} cho ${toName}`)}</h3>
             <p className="w-hint">{ghost ? tx(ghost.label) : (lang === 'en' ? `Demo PIN ${DEMO_PIN}` : `PIN demo ${DEMO_PIN}`)}</p>
             <div className={`w-dots ${shake ? 'shake' : ''}`} aria-label={`${digits.length}/4`}>
               {[0, 1, 2, 3].map((i) => <i key={i} className={i < digits.length ? 'on' : ''} />)}
@@ -211,7 +284,7 @@ export default function Wallet({ mode, enrollStep, busy, outcome, ghost, onLayou
             <h3>{act === 'allow' ? (lang === 'en' ? 'Sent' : 'Đã chuyển')
               : act === 'step_up' ? (lang === 'en' ? 'Verify your face to continue' : 'Xác thực khuôn mặt để tiếp tục')
               : (lang === 'en' ? 'Transfer on hold' : 'Lệnh đang được tạm giữ')}</h3>
-            <p>{act === 'allow' ? `${money(amount)} → ${tx(c.name)}`
+            <p>{act === 'allow' ? `${money(amount)} → ${toName}`
               : act === 'step_up' ? (lang === 'en' ? 'This doesn’t look like your usual touch. One quick face check keeps your money safe.' : 'Thao tác không giống thói quen của bạn. Một bước xác thực khuôn mặt giúp giữ tiền an toàn.')
               : (lang === 'en' ? 'We paused this transfer and will contact you. Your account is not locked.' : 'Lệnh chuyển đã tạm dừng và chúng tôi sẽ liên hệ bạn. Tài khoản của bạn không bị khoá.')}</p>
             <span className={`status ${act === 'allow' ? 'matched' : act === 'step_up' ? 'sent' : 'discrepancy'}`}>{t(`act_${act!}`)}</span>

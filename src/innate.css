@@ -94,3 +94,14 @@
 .w-result .status { color: var(--navy); }
 .w-result .w-act { margin-top: 10px; min-width: 180px; }
 @media (prefers-reduced-motion: reduce) { .w-swipe-arrow, .w-dots.shake, .w-spin { animation: none; } }
+
+/* account number entry (bank transfer) */
+.w-banks { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.w-banks .w-chip { font-size: 11px; padding: 7px 4px; }
+.w-acct { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; padding: 8px 12px; background: #fff; border: 1px solid rgba(11, 31, 68, 0.18); }
+.w-acct .mono { font-family: var(--f-mono); font-size: 16px; letter-spacing: 0.06em; overflow-wrap: anywhere; }
+.w-acct small { font-size: 11px; opacity: 0.6; white-space: nowrap; }
+.w-account { gap: 10px; }
+.w-keys-sm { gap: 6px; margin-top: 0; }
+.w-keys-sm .w-key { aspect-ratio: 2.2; font-size: 18px; }
+.w-key:disabled { opacity: 0.35; cursor: default; }

@@ -1,4 +1,4 @@
-import type { SessionIn, Swipe, Tap, ScreenVisit } from './api'
+import type { FieldEvent, SessionIn, Swipe, Tap, ScreenVisit, TextField } from './api'
 
 // The SDK part of Innate, running in the demo wallet: records PIN-key press/release times, where the finger landed
 // relative to the key, touch size, swipes and how long each screen sat idle. Times are ms since the session began.
@@ -12,6 +12,7 @@ export class Recorder {
   taps: Tap[] = []
   swipes: Swipe[] = []
   screens: ScreenVisit[] = []
+  fields: TextField[] = []
   private down = new Map<number, Omit<Tap, 't_up'>>()
   private stroke: Swipe['points'] | null = null
 
@@ -42,6 +43,14 @@ export class Recorder {
 
   clearTaps() { this.taps = []; this.down.clear() }
 
+  /** one change in a typed field (account number): when and what kind, never which digit */
+  field(name: TextField['name'], kind: FieldEvent['kind']) {
+    this.touched()
+    let f = this.fields.find((x) => x.name === name)
+    if (!f) { f = { name, events: [] }; this.fields.push(f) }
+    f.events.push(kind === 'key' ? { t: this.now(), kind, n: 1, cls: 'digit' } : { t: this.now(), kind, n: 1 })
+  }
+
   swipeStart(e: PointerEvent) { this.touched(); this.stroke = [{ t: this.now(), x: r1(e.clientX), y: r1(e.clientY) }] }
   swipeMove(e: PointerEvent) {
     if (!this.stroke || this.stroke.length >= MAX_POINTS) return
@@ -58,7 +67,8 @@ export class Recorder {
   }
 
   payload(userId: string): SessionIn {
-    return { user_id: userId, device_id: deviceId(), pin_taps: this.taps, swipes: this.swipes, screens: this.screens }
+    return { user_id: userId, device_id: deviceId(), pin_taps: this.taps, swipes: this.swipes, screens: this.screens,
+      ...(this.fields.length ? { fields: this.fields } : {}) }
   }
 }
 

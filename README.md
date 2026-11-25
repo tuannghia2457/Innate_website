@@ -36,7 +36,7 @@ After deploy, open `/#/demo` and enroll once to check that scoring works (withou
 | Route | What it shows |
 |---|---|
 | `#/` | Landing in the Movora layout: INNATE wordmark with a phone lowered on a spring, threat strip, problem, the three outcomes as numbered rows, inside a score + KPIs, the Lime “How it works” band, under the hood, cast, FAQ. Intro: P·IN → IN·NATE. |
-| `#/demo` | Demo wallet with the SDK inside. Enroll your rhythm (3 × PIN `1593`), then transfer; the attacker console replays malware or another person on the same keys. |
+| `#/demo` | Demo wallet with the SDK inside. Enroll your rhythm (3 × PIN `1593`), then transfer to a saved contact or to a **bank account** (pick a bank, type the account number on the wallet's own pad: only key times are sent, never the digits). The attacker console replays malware (fills the account straight into the field, then taps the PIN) or another person (types an account, then the PIN) on the same screens. |
 | `#/demo?story=1` | Guided story, 8 steps (~90 s): SDK, Hà enrolls, Hà pays her mum (allow), fake officer + Accessibility app, malware at 2 a.m. (hold), Bảo with the PIN (step-up), ops review, policy. Seeded sessions, scored live. Autoplay, sound, keyboard ← → K M, behind-the-scenes picture-in-picture. |
 | `#/ops` | Fraud-ops dashboard: flagged sessions with reasons, label fraud / legit. Needs the **ops** key, typed by the analyst and kept in `sessionStorage` only. |
 

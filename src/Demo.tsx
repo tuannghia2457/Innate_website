@@ -7,9 +7,9 @@ import { useT } from './i18n'
 import { isMuted, play, setMuted, unlock } from './sound'
 import { STEPS, persona, type PersonaId } from './story'
 import { StoryBar, StoryStart } from './StoryBar'
-import { FRIEND, OWNER, botSession, humanSession, rng, type Layout } from './synth'
+import { FRIEND, OWNER, botSession, humanSession, rng, withAccount, type Layout } from './synth'
 import { T, Tx } from './ui'
-import Wallet, { DEMO_PIN, type Ghost, type PayCtx } from './Wallet'
+import Wallet, { DEMO_PIN, type Account, type Ghost, type PayCtx } from './Wallet'
 
 type L = { en: string; vi: string }
 interface Attempt { id: string; who: L; ctx: PayCtx; score: Score; at: Date }
@@ -90,25 +90,32 @@ export default function Demo({ story }: { story: boolean }) {
 
   // replay a synthetic session on the wallet keys, then send it
   const ghostId = useRef(0)
-  async function replay(s: SessionIn, label: L, pay?: PayCtx & { id: string }) {
+  async function replay(s: SessionIn, label: L, pay?: PayCtx & { id: string; account?: Account }) {
     setOutcome(null)
-    setGhost({ id: ++ghostId.current, taps: s.pin_taps, label, pay: pay && { recipient: pay.id, amount: pay.amount } })
+    setGhost({ id: ++ghostId.current, taps: s.pin_taps, label, pay: pay && { recipient: pay.id, amount: pay.amount, account: pay.account } })
     const taps = s.pin_taps
-    await sleep(taps[taps.length - 1].t_up - taps[0].t_down + 450)
+    const a = pay?.account  // same lead time as the wallet's ghost playback
+    const lead = !a ? 0 : a.typing ? a.typing.reduce((x, y) => x + y, 500) + 900 : 1900
+    await sleep(lead + taps[taps.length - 1].t_up - taps[0].t_down + 450)
   }
   const lay = () => layout.current ?? DEFAULT_LAYOUT
 
   const botAttack = () => guarded(async () => {
     const ctx = { id: 'new', recipient: tx({ en: 'New recipient', vi: 'Người nhận mới' }), recipient_is_new: true, amount: 20_000_000 }
-    const s = botSession(userId, DEMO_PIN, lay())
-    await replay(s, { en: 'Malware is tapping the PIN…', vi: 'Mã độc đang bấm PIN…' }, ctx)
+    // malware writes the mule account straight into the field (no keys), then taps the PIN
+    const { session: s } = withAccount(botSession(userId, DEMO_PIN, lay()), 'set_text', 13)
+    await replay(s, { en: 'Malware fills the account and taps the PIN…', vi: 'Mã độc điền thẳng số tài khoản rồi bấm PIN…' },
+      { ...ctx, account: { bank: 'vcb', acct: '0071000123456' } })
     await scoreWith(s, ctx, WHO.bot)
     setGhost(null)
   })
   const friendTry = () => guarded(async () => {
     const ctx = { id: 'new', recipient: tx({ en: 'New recipient', vi: 'Người nhận mới' }), recipient_is_new: true, amount: 2_000_000 }
-    const s = humanSession(userId, DEMO_PIN, lay(), FRIEND, rng(Date.now() % 100000))
-    await replay(s, { en: 'Someone else types the PIN…', vi: 'Người khác đang gõ PIN…' }, ctx)
+    // another person types their own account number by hand, then the PIN they saw
+    const g = rng(Date.now() % 100000)
+    const { session: s, typing } = withAccount(humanSession(userId, DEMO_PIN, lay(), FRIEND, g), 'typed', 14, g)
+    await replay(s, { en: 'Someone else types an account and the PIN…', vi: 'Người khác gõ số tài khoản rồi gõ PIN…' },
+      { ...ctx, account: { bank: 'bidv', acct: '21510000887766', typing } })
     await scoreWith(s, ctx, WHO.friend)
     setGhost(null)
   })

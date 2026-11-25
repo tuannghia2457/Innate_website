@@ -9,7 +9,10 @@ export interface Tap {
 }
 export interface Swipe { points: { t: number; x: number; y: number }[] }
 export interface ScreenVisit { name: string; t_enter: number; t_first_touch: number | null }
-export interface SessionIn { user_id: string; device_id: string; pin_taps: Tap[]; swipes: Swipe[]; screens: ScreenVisit[] }
+// A field typed outside the PIN pad. Only time, kind and character count: never the digits themselves.
+export interface FieldEvent { t: number; kind: 'key' | 'paste' | 'delete' | 'set_text'; n?: number; cls?: 'digit' }
+export interface TextField { name: 'recipient' | 'amount'; events: FieldEvent[] }
+export interface SessionIn { user_id: string; device_id: string; pin_taps: Tap[]; swipes: Swipe[]; screens: ScreenVisit[]; fields?: TextField[] }
 
 export type Action = 'allow' | 'step_up' | 'hold'
 export interface Score {
@@ -76,6 +79,9 @@ export function reasonText(code: string, lang: 'en' | 'vi'): string {
     [/^timing_too_regular$/, 'Machine-regular timing', 'Nhịp bấm đều bất thường'],
     [/^tap_exact_center$/, 'Taps hit the exact key centre', 'Chạm đúng tâm nút'],
     [/^swipe_perfectly_straight$/, 'Perfectly straight swipe', 'Vuốt thẳng tuyệt đối'],
+    [/^text_set_without_keys$/, 'Field filled without any key press', 'Ô nhập được điền thẳng, không có phím nào'],
+    [/^replayed_session$/, 'Copy of an earlier session', 'Lặp lại y hệt một phiên trước'],
+    [/^ml_bot_pattern$/, 'AI model: machine-like pattern', 'Mô hình AI: dấu hiệu máy'],
     [/^not_enrolled$/, 'Rhythm not enrolled yet', 'Chưa đăng ký nhịp'],
     [/^missing_pin_evidence$/, 'No full PIN entry to compare', 'Thiếu thao tác nhập PIN để đối chiếu'],
     [/^new_recipient$/, 'New recipient', 'Người nhận mới'],
